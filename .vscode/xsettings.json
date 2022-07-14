@@ -1,0 +1,25 @@
+{
+    "python.defaultInterpreterPath": "C:\\Users\\joydi\\miniconda3\\envs\\QGIS\\python.exe",
+    
+    "python.terminal.activateEnvironment": true,
+
+    // "python.linting.pylintEnabled": true,
+
+   // "python.condaPath": "C:\\Users\\joydi\\anaconda3\\Scripts\\conda.exe",
+    
+    "terminal.integrated.profiles.windows": {
+        "PowerShell -NoProfile": {
+            "source": "PowerShell",
+            "args": ["-NoProfile"]
+        }
+    },
+    "terminal.integrated.defaultProfile.windows": "PowerShell",
+    
+    "terminal.integrated.cwd": "${fileDirname}",
+
+    "python.terminal.C": true,
+    "python.linting.enabled": true,
+    
+
+    
+}

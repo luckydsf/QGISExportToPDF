@@ -1,1 +1,12 @@
+__pycache__/
+.vscode/
+shapefiles/
+.env
+*.pdf
 exporttopdf.py
+FireMap.qpt
+FireMap copy.qgz
+ubuntu/ExportToPDF/.env
+ubuntu/ExportToPDF/red_flag.qml
+ubuntu/ExportToPDF/*.pdf
+ubuntu/ExportToPDF/shapefiles/

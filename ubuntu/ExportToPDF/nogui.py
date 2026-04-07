@@ -3,6 +3,11 @@ import sys
 import os
 import shutil
 import datetime
+from dotenv import load_dotenv
+
+load_dotenv() 
+# set no GUI setting
+os.environ["QT_QPA_PLATFORM"] = "offscreen"
 
 from PyPDF2 import PdfMerger
 
@@ -10,29 +15,38 @@ from qgis.core import (
      QgsProcessingFeedback,
      QgsProcessingContext,
      QgsApplication, 
-     QgsProject, 
-     QgsLayoutExporter
+     QgsProject
 )
 
-# path to qgis map folder
-qgz_path = '/usr/share/pyshared/exportToPDF'
-# path to pdf output folder
-pdf_path = qgz_path
-# path to website pdf output folder
-web_path = '/var/www/firealertmap/pdf'
-# path to PyGIS qgis-ltr packages folder
-prefix_path = '/usr'
-# path to PyGIS qgis-ltr plugins folder
-plugins = '/usr/share/qgis/python/plugins'
+QGZ_PATH = os.getenv("QGZ_PATH") # path to qgis map folder
+WEB_PATH = os.getenv("WEB_PATH") # path to website pdf output folder
+QGIS_INSTALL_PATH = os.getenv("QGIS_INSTALL_PATH") # Path to QGIS folder
+QGIS_PYTHON_PATH = os.getenv("QGIS_PYTHON_PATH") # Path to QGIS folder
+PYTHON_PLUGINS = os.getenv("PYTHON_PLUGINS") # Path to 'processing' folder
+PDF_PATH = QGZ_PATH # path to pdf output folder
+
+# 2. Add QGIS paths to sys.path so Python can find 'processing'
+sys.path.append(QGIS_PYTHON_PATH)
+sys.path.append(PYTHON_PLUGINS)
+
+# 3. Initialize QGIS Resources
+QgsApplication.setPrefixPath(QGIS_INSTALL_PATH, True)
+qgs = QgsApplication([], False)
+qgs.initQgis()
+
+
+import processing
+from processing.core.Processing import Processing
+Processing.initialize()
+
+project = QgsProject()
 
 # convert layout in QGIS map document to pdf
 def makePDF(section):
     
-    output =  os.path.join(qgz_path, section + '.pdf')
-    web_output =  os.path.join(web_path, section + '.pdf')
-    
-    #print('section: ' + section)
-    
+    output =  os.path.join(QGZ_PATH, section + '.pdf')
+    web_output =  os.path.join(WEB_PATH, section + '.pdf')
+        
     params = {
     'LAYOUT':section,
     'LAYERS':None,
@@ -54,55 +68,43 @@ def makePDF(section):
     
     result = processing.run("native:printlayouttopdf", params, context=context, feedback=feedback)
     
-    # copy to website pdf folder
-    shutil.copyfile(output, web_output)
-    #print('result: ' + str(result))
+    
 
 # merge pdf sections maps into one pdf file 
 def mergePDF(sections):
         
     merger = PdfMerger()
     for y in sections:
-        pdf = os.path.join(pdf_path, y + '.pdf')
-        # print('pdf: ' + str(pdf))
+        pdf = os.path.join(PDF_PATH, y + '.pdf')
         merger.append(pdf)
     
-    mergeFile = os.path.join(pdf_path, "Fire_Severity_Maps.pdf")
+    mergeFile = os.path.join(PDF_PATH, "Fire_Severity_Maps.pdf")
     merger.write(mergeFile)
     merger.close()
     
     # copy to website pdf folder
-    webFile = os.path.join(web_path, "Fire_Severity_Maps.pdf")
+    webFile = os.path.join(WEB_PATH, "Fire_Severity_Maps.pdf")
     shutil.copyfile(mergeFile, webFile)
-    
-# set no GUI setting
-os.environ["QT_QPA_PLATFORM"] = "offscreen"
 
-# use qgis-ltr packages to export to pdf
-QgsApplication.setPrefixPath(prefix_path, True)
-qgs = QgsApplication([], False)
-qgs.initQgis()
-
-# reference to qgis-ltr plugins for processing package/module
-sys.path.append(plugins)
-
-import processing
-from processing.core.Processing import Processing
-Processing.initialize()
-
+def main():    
 # read QGIS map document
-project = QgsProject()
-isproject = project.read(os.path.join(qgz_path,'FireMap.qgz'))
+    isproject = project.read(os.path.join(QGZ_PATH,'FireMap.qgz'))
+    if not isproject:
+        print('ERROR: Failed to load FireMap.qgz')
+        return
 
-# call pdf maker for each layout
-layouts = ['Northern_California', 'Sacramento', 'Central_Valley']
-for y in layouts:
-    makePDF(y)
-   
-# merge pdf section files into one pdf    
-mergePDF(layouts)
+    # call pdf maker for each layout
+    layouts = ['Northern_California', 'Sacramento', 'Central_Valley']
+    for y in layouts:
+        makePDF(y)
+    
+    # merge pdf section files into one pdf    
+    mergePDF(layouts)
 
-# exit
-QgsProject.instance().clear()
-QgsApplication.exitQgis()
-print(str(datetime.datetime.now()))
+    # exit
+    QgsProject.instance().clear()
+    QgsApplication.exitQgis()
+    print(str(datetime.datetime.now()))
+
+if __name__ == "__main__":
+    main()

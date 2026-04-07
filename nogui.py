@@ -3,34 +3,47 @@ import sys
 import os
 import shutil
 import datetime
+from dotenv import load_dotenv
 
-from PyPDF2 import PdfMerger
+load_dotenv() 
+
+from pypdf import PdfWriter
 
 from qgis.core import (
      QgsProcessingFeedback,
      QgsProcessingContext,
      QgsApplication, 
-     QgsProject, 
-     QgsLayoutExporter
+     QgsProject
 )
+#1. paths stored in .env
+QGZ_PATH = os.getenv("QGZ_PATH") # path to qgis map folder
+WEB_PATH = os.getenv("WEB_PATH") # path to website pdf output folder
+QGIS_PATH = os.getenv("QGIS_PATH") # Path to QGIS folder
+PYTHON_PLUGINS = os.getenv("PYTHON_PLUGINS") # Path to 'processing' folder
+PDF_PATH = QGZ_PATH # path to pdf output folder
 
-# path to qgis map folder
-qgz_path = r'C:\Users\joydi\OneDrive\_VSCode_Projects\exportToPDF'
-# path to pdf output folder
-pdf_path = qgz_path
-# path to website pdf output folder
-web_path = r'C:\Users\joydi\OneDrive\_VSCode_Projects\firealertmap\pdf'
-# path to PyGIS qgis-ltr packages folder
-prefix_path = r'C:\OSGeo4W\apps\qgis-ltr'
-# path to PyGIS qgis-ltr plugins folder
-plugins = 'plugins'
+
+# 2. Add QGIS paths to sys.path so Python can find 'processing'
+sys.path.append(QGIS_PATH + r"\python")
+sys.path.append(PYTHON_PLUGINS)
+
+# 3. Initialize QGIS Resources
+QgsApplication.setPrefixPath(QGIS_PATH, True)
+qgs = QgsApplication([], False) # False = Standalone (no GUI)
+qgs.initQgis()
+
+import processing
+from processing.core.Processing import Processing
+Processing.initialize()
+
+project = QgsProject.instance()
 
 
 # convert layout in QGIS map document to pdf
 def makePDF(section):
 
-    output =  os.path.join(qgz_path, section + '.pdf')
-    web_output =  os.path.join(web_path, section + '.pdf')
+    output =  os.path.join(QGZ_PATH, section + '.pdf')
+    web_output =  os.path.join(WEB_PATH, section + '.pdf')
     
     #print('section: ' + section)
     
@@ -62,48 +75,44 @@ def makePDF(section):
 # merge pdf sections maps into one pdf file
 def mergePDF(sections):
         
-    merger = PdfMerger()
+    #merger = PdfMerger()
+    merger = PdfWriter()
     for y in sections:
-        pdf = os.path.join(pdf_path, y + '.pdf')
+        pdf = os.path.join(PDF_PATH, y + '.pdf')
         # print('pdf: ' + str(pdf))
         merger.append(pdf)
     
-    mergeFile = os.path.join(pdf_path, "Fire_Severity_Maps.pdf")
+    mergeFile = os.path.join(PDF_PATH, "Fire_Severity_Maps.pdf")
     merger.write(mergeFile)
     merger.close()
     
     # copy to website pdf folder
-    webFile = os.path.join(web_path, "Fire_Severity_Maps.pdf")
+    webFile = os.path.join(WEB_PATH, "Fire_Severity_Maps.pdf")
     shutil.copyfile(mergeFile, webFile)
     
 
 
+def main():
+    # read QGIS map document
+    isproject = project.read(os.path.join(QGZ_PATH,'FireMap.qgz'))
+    if not isproject:
+        print('ERROR: Failed to load FireMap.qgz')
+        return
 
-# use qgis-ltr packages to export to pdf
-QgsApplication.setPrefixPath(prefix_path, True)
-qgs = QgsApplication([], False)
-qgs.initQgis()
+    # call pdf maker for each layout
+    layouts = ['Northern_California', 'Sacramento', 'Central_Valley']
+    for y in layouts:
+        makePDF(y)
 
-# reference to qgis-ltr plugins for processing package/module
-sys.path.append(plugins)
+    # merge pdf section files into one pdf 
+    mergePDF(layouts)
 
-import processing
-from processing.core.Processing import Processing
-Processing.initialize()
+    # exit
+    QgsProject.instance().clear()
+    QgsApplication.exitQgis()
+    print(str(datetime.datetime.now()))
 
-# read QGIS map document
-project = QgsProject()
-isproject = project.read(os.path.join(qgz_path,'FireMap.qgz'))
 
-# call pdf maker for each layout
-layouts = ['Northern_California', 'Sacramento', 'Central_Valley']
-for y in layouts:
-    makePDF(y)
-
-# merge pdf section files into one pdf 
-mergePDF(layouts)
-
-# exit
-QgsProject.instance().clear()
-QgsApplication.exitQgis()
-print(str(datetime.datetime.now()))
+if __name__ == "__main__":
+    main()
+    #run 'python-qgis-ltr nogui.py' from osgeo4W shell to make execute this script
